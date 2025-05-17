@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
@@ -177,7 +177,11 @@ function TotalsPage() {
               <tbody>
                 {attendanceList.map(({ date, units }) => (
                   <tr key={date}>
-                    <td>{date}（{getWeekday(date)}）</td>
+                    <td>
+                      <Link to={`/date/${date}`} style={{ color: "blue", textDecoration: "underline" }}>
+                        {date}（{getWeekday(date)}）
+                      </Link>
+                    </td>
                     <td>{units}</td>
                   </tr>
                 ))}
