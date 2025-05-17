@@ -1,12 +1,38 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import "./Home.css"; // CSS を読み込み
 
 function Home() {
   const [date, setDate] = useState(new Date());
+  const [markedDates, setMarkedDates] = useState(new Set());
   const navigate = useNavigate();
+
+  // 出席済みの日付を取得
+  useEffect(() => {
+    const datesWithAttendance = new Set();
+
+    for (let key in localStorage) {
+      if (key.startsWith("attendance-")) {
+        try {
+          const data = JSON.parse(localStorage.getItem(key));
+          if (data && data.participants) {
+            // 誰かが出席していたらマーク
+            const someonePresent = Object.values(data.participants).some(
+              (info) => info.isPresent
+            );
+            if (someonePresent) {
+              const dateStr = key.replace("attendance-", "");
+              datesWithAttendance.add(dateStr);
+            }
+          }
+        } catch {}
+      }
+    }
+
+    setMarkedDates(datesWithAttendance);
+  }, []);
 
   const onDateChange = (selectedDate) => {
     const year = selectedDate.getFullYear();
@@ -28,6 +54,18 @@ function Home() {
         onChange={onDateChange}
         value={date}
         formatDay={(locale, date) => date.getDate()}
+        tileClassName={({ date, view }) => {
+          if (view === "month") {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            const dateStr = `${y}-${m}-${d}`;
+            if (markedDates.has(dateStr)) {
+              return "highlight";
+            }
+          }
+          return null;
+        }}
       />
     </div>
   );

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // ← 追加
 
 function Participants() {
   const [participants, setParticipants] = useState([]);
   const [newName, setNewName] = useState('');
+  const navigate = useNavigate(); // ← 戻る機能用
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('participants')) || [];
@@ -30,6 +32,22 @@ function Participants() {
   return (
     <div>
       <h2>参加者リスト管理</h2>
+
+      <button
+        onClick={() => navigate(-1)}
+        style={{
+          marginBottom: '20px',
+          padding: '6px 12px',
+          fontSize: '16px',
+          backgroundColor: '#eee',
+          border: '1px solid #ccc',
+          borderRadius: '4px',
+          cursor: 'pointer',
+        }}
+      >
+        ← 戻る
+      </button>
+
       <input
         type="text"
         placeholder="名前を入力"

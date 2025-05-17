@@ -1,0 +1,6 @@
+/* 出席がある日付に適用するスタイル */
+.highlight {
+  background-color: #c8f7c5 !important;
+  font-weight: bold;
+  border-radius: 50%;
+}
