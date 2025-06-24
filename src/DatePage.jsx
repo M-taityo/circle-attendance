@@ -17,18 +17,26 @@ function DatePage() {
 
   const [isPracticeDay, setIsPracticeDay] = useState(false);
 
-  // 日付の前日を計算
   const getPrevDate = () => {
     const d = new Date(date);
     d.setDate(d.getDate() - 1);
     return d.toISOString().slice(0, 10);
   };
 
-  // 日付の翌日を計算
   const getNextDate = () => {
     const d = new Date(date);
     d.setDate(d.getDate() + 1);
     return d.toISOString().slice(0, 10);
+  };
+
+  const formatJapaneseDate = (dateStr) => {
+    const d = new Date(dateStr);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+    const weekday = weekdays[d.getDay()];
+    return `${y}年${m}月${day}日（${weekday}）の出席登録`;
   };
 
   useEffect(() => {
@@ -38,8 +46,14 @@ function DatePage() {
       setAttendanceData(data);
       setIsPracticeDay(data.isPracticeDay ?? false);
     } else {
-      setAttendanceData({ participants: {} });
-      setIsPracticeDay(false);
+      const dayOfWeek = new Date(date).getDay();
+      const defaultPracticeDay = [1, 4, 6].includes(dayOfWeek);
+      const newData = {
+        participants: {},
+        isPracticeDay: defaultPracticeDay,
+      };
+      setAttendanceData(newData);
+      setIsPracticeDay(defaultPracticeDay);
     }
 
     const storedParticipants = localStorage.getItem("participants");
@@ -136,44 +150,27 @@ function DatePage() {
 
   return (
     <div>
-      <h2>{date} の出席登録</h2>
+      <h2>{formatJapaneseDate(date)}</h2>
 
-      {/* 前の日・次の日・ホームへ戻るリンク */}
       <div style={{ marginBottom: "20px" }}>
-        <button
-          onClick={() => navigate(`/date/${getPrevDate()}`)}
-          style={{ marginRight: "10px", padding: "6px 12px" }}
-        >
+        <button onClick={() => navigate(`/date/${getPrevDate()}`)} style={{ marginRight: "10px", padding: "6px 12px" }}>
           ← 前の日
         </button>
-        <button
-          onClick={() => navigate(`/date/${getNextDate()}`)}
-          style={{ marginRight: "10px", padding: "6px 12px" }}
-        >
+        <button onClick={() => navigate(`/date/${getNextDate()}`)} style={{ marginRight: "10px", padding: "6px 12px" }}>
           次の日 →
         </button>
-        <button
-          onClick={() => navigate("/")}
-          style={{ padding: "6px 12px" }}
-        >
+        <button onClick={() => navigate("/")} style={{ padding: "6px 12px" }}>
           ホームへ戻る
         </button>
       </div>
 
-      <button
-        onClick={() => navigate(-1)}
-        style={{ marginBottom: "20px", padding: "6px 12px", fontSize: "16px" }}
-      >
+      <button onClick={() => navigate(-1)} style={{ marginBottom: "20px", padding: "6px 12px", fontSize: "16px" }}>
         ← 戻る
       </button>
 
       <div style={{ fontSize: "18px", marginBottom: "10px" }}>
         <label>
-          <input
-            type="checkbox"
-            checked={isPracticeDay}
-            onChange={(e) => togglePracticeDay(e.target.checked)}
-          />
+          <input type="checkbox" checked={isPracticeDay} onChange={(e) => togglePracticeDay(e.target.checked)} />
           この日は練習日ですか？
         </label>
       </div>
@@ -191,7 +188,9 @@ function DatePage() {
           >
             <option value="">-- 年度を選択 --</option>
             {[...new Set(participantsList.map((p) => p.year))].map((year) => (
-              <option key={year} value={year}>{year}年</option>
+              <option key={year} value={year}>
+                {year}年
+              </option>
             ))}
           </select>
         </label>
@@ -320,18 +319,9 @@ function DatePage() {
             return order[infoA.isPresent] - order[infoB.isPresent];
           })
           .map(([name, info]) => (
-            <li
-              key={name}
-              onClick={() => startEdit(name)}
-              style={{ cursor: "pointer" }}
-            >
+            <li key={name} onClick={() => startEdit(name)} style={{ cursor: "pointer" }}>
               {name} - 出席:{" "}
-              {info.isPresent === true
-                ? "〇"
-                : info.isPresent === false
-                ? "×"
-                : "保留"}{" "}
-              - 単位数: {info.units}
+              {info.isPresent === true ? "〇" : info.isPresent === false ? "×" : "保留"} - 単位数: {info.units}
             </li>
           ))}
       </ul>
