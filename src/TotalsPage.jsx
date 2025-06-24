@@ -5,10 +5,23 @@ import { saveAs } from "file-saver";
 
 function TotalsPage() {
   const [totals, setTotals] = useState({});
+  const [participantsList, setParticipantsList] = useState([]);
   const [selectedName, setSelectedName] = useState(null);
   const [attendanceList, setAttendanceList] = useState([]);
   const navigate = useNavigate();
 
+  // participantsListを取得
+  useEffect(() => {
+    const storedParticipants = localStorage.getItem("participants");
+    if (storedParticipants) {
+      try {
+        const parsed = JSON.parse(storedParticipants);
+        setParticipantsList(parsed);
+      } catch {}
+    }
+  }, []);
+
+  // 合計単位数計算
   useEffect(() => {
     const totalsData = {};
     for (let key in localStorage) {
@@ -51,19 +64,35 @@ function TotalsPage() {
     setAttendanceList(list);
   };
 
-  // 曜日を取得する関数
+  // 曜日取得関数
   const getWeekday = (dateStr) => {
     const date = new Date(dateStr);
     const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
     return weekdays[date.getDay()];
   };
 
-  // エクスポート処理
+  // 参加者情報と合計単位数でソートした配列を作成
+  const sortedEntries = Object.entries(totals)
+    .map(([name, total]) => {
+      // participantsListから入学年度を探す
+      const participant = participantsList.find((p) => p.name === name);
+      const year = participant ? participant.year : 9999; // 見つからなければ後ろに回す
+      return { name, total, year };
+    })
+    .sort((a, b) => {
+      // ①年の昇順（古い順）
+      if (a.year !== b.year) return a.year - b.year;
+      // ②単位数の降順
+      return b.total - a.total;
+    });
+
+  // エクスポート処理は変更不要（必要なら追記可能）
+
   const exportExcel = () => {
     // シート1：合計単位数一覧
-    const totalsSheetData = [["名前", "合計単位数"]];
-    for (const [name, total] of Object.entries(totals)) {
-      totalsSheetData.push([name, total]);
+    const totalsSheetData = [["名前", "入学年度", "合計単位数"]];
+    for (const { name, year, total } of sortedEntries) {
+      totalsSheetData.push([name, year === 9999 ? "" : year, total]);
     }
 
     // シート2：全参加者の出席履歴
@@ -144,15 +173,15 @@ function TotalsPage() {
         出席履歴と合計単位数をエクスポート
       </button>
 
-      {Object.keys(totals).length === 0 && <p>出席記録がありません</p>}
+      {sortedEntries.length === 0 && <p>出席記録がありません</p>}
       <ul>
-        {Object.entries(totals).map(([name, total]) => (
+        {sortedEntries.map(({ name, total, year }) => (
           <li
             key={name}
             style={{ cursor: "pointer", color: "blue" }}
             onClick={() => onClickName(name)}
           >
-            {name} : {total} 単位
+            {name}（{year === 9999 ? "年度不明" : year}年入学） : {total} 単位
           </li>
         ))}
       </ul>
@@ -178,7 +207,10 @@ function TotalsPage() {
                 {attendanceList.map(({ date, units }) => (
                   <tr key={date}>
                     <td>
-                      <Link to={`/date/${date}`} style={{ color: "blue", textDecoration: "underline" }}>
+                      <Link
+                        to={`/date/${date}`}
+                        style={{ color: "blue", textDecoration: "underline" }}
+                      >
                         {date}（{getWeekday(date)}）
                       </Link>
                     </td>
