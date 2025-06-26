@@ -66,3 +66,32 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* ここからカレンダー用のスタイル */
+
+/* 練習日：青丸 */
+.react-calendar__tile.tile-practice:not(.tile-today) {
+  background-color: #007bff;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 今日：黄色い四角（練習日より優先） */
+.react-calendar__tile.tile-today {
+  background-color: #ffd700;
+  color: black;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 今日が練習日でも黄色を優先 */
+.tile-today.tile-practice {
+  background-color: #ffd700;
+  color: black;
+  border-radius: 0;
+}

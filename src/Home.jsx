@@ -10,7 +10,7 @@ function Home() {
   const [practiceDays, setPracticeDays] = useState([]);
   const navigate = useNavigate();
 
-  // 指定年月の全日付で練習日判定して配列を返す関数
+  // 練習日リストを生成
   const generatePracticeDays = (year, month) => {
     const datesWithPractice = [];
     const firstDate = new Date(year, month, 1);
@@ -23,7 +23,6 @@ function Home() {
       const formatted = `${y}-${m}-${day}`;
 
       const stored = localStorage.getItem(`attendance-${formatted}`);
-
       if (stored) {
         try {
           const data = JSON.parse(stored);
@@ -41,7 +40,7 @@ function Home() {
     return datesWithPractice;
   };
 
-  // カレンダーの表示月が変わったら練習日を更新
+  // 月が変わったとき練習日を再計算
   const onActiveStartDateChange = ({ activeStartDate }) => {
     const year = activeStartDate.getFullYear();
     const month = activeStartDate.getMonth();
@@ -49,7 +48,7 @@ function Home() {
     setPracticeDays(newPracticeDays);
   };
 
-  // 初回レンダリング時は現在の月の練習日を設定
+  // 初回ロード時
   useEffect(() => {
     const now = new Date();
     const initialPracticeDays = generatePracticeDays(now.getFullYear(), now.getMonth());
@@ -64,13 +63,27 @@ function Home() {
     navigate(`/date/${formatted}`);
   };
 
+  // 日付ごとのカスタムクラス設定
   const tileClassName = ({ date, view }) => {
     if (view !== "month") return null;
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     const formatted = `${year}-${month}-${day}`;
-    return practiceDays.includes(formatted) ? "practice-day" : null;
+
+    const today = new Date();
+    const isToday =
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate();
+
+    const isPractice = practiceDays.includes(formatted);
+
+    const classes = [];
+    if (isPractice) classes.push("tile-practice");
+    if (isToday) classes.push("tile-today");
+
+    return classes.join(" ");
   };
 
   return (
@@ -87,10 +100,10 @@ function Home() {
         value={date}
         formatDay={(locale, date) => date.getDate()}
         tileClassName={tileClassName}
-        onActiveStartDateChange={onActiveStartDateChange} // ← ここを追加
+        onActiveStartDateChange={onActiveStartDateChange}
       />
     </div>
-  );S
+  );
 }
 
 export default Home;

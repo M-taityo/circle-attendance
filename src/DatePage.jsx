@@ -7,8 +7,8 @@ function DatePage() {
 
   const [attendanceData, setAttendanceData] = useState({ participants: {} });
   const [participantsList, setParticipantsList] = useState([]);
-  const [selectedYear, setSelectedYear] = useState("");
 
+  // 参加者選択関連の状態
   const [participantName, setParticipantName] = useState("");
   const [isPresent, setIsPresent] = useState(true);
   const [units, setUnits] = useState(2);
@@ -59,7 +59,8 @@ function DatePage() {
     const storedParticipants = localStorage.getItem("participants");
     if (storedParticipants) {
       const parsed = JSON.parse(storedParticipants);
-      parsed.sort((a, b) => b.year - a.year);
+      // 入学年度昇順にソート
+      parsed.sort((a, b) => a.year - b.year);
       setParticipantsList(parsed);
     } else {
       setParticipantsList([]);
@@ -70,7 +71,6 @@ function DatePage() {
 
   const resetForm = () => {
     setParticipantName("");
-    setSelectedYear("");
     setIsPresent(true);
 
     const selectedDate = new Date(date);
@@ -129,11 +129,6 @@ function DatePage() {
       setCustomUnits(info.units);
     }
     setEditingName(name);
-
-    const participant = participantsList.find((p) => p.name === name);
-    if (participant) {
-      setSelectedYear(participant.year.toString());
-    }
   };
 
   const togglePracticeDay = (checked) => {
@@ -177,41 +172,18 @@ function DatePage() {
 
       <div style={{ fontSize: "18px", marginBottom: "10px" }}>
         <label>
-          入学年度：
-          <select
-            value={selectedYear}
-            onChange={(e) => {
-              setSelectedYear(e.target.value);
-              setParticipantName("");
-            }}
-            disabled={editingName !== null}
-          >
-            <option value="">-- 年度を選択 --</option>
-            {[...new Set(participantsList.map((p) => p.year))].map((year) => (
-              <option key={year} value={year}>
-                {year}年
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div style={{ fontSize: "18px", marginBottom: "10px" }}>
-        <label>
           参加者名：
           <select
             value={participantName}
             onChange={(e) => setParticipantName(e.target.value)}
-            disabled={editingName !== null || selectedYear === ""}
+            disabled={editingName !== null}
           >
             <option value="">-- 参加者を選択 --</option>
-            {participantsList
-              .filter((p) => p.year.toString() === selectedYear)
-              .map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
+            {participantsList.map((p) => (
+              <option key={p.name} value={p.name}>
+                {p.year}年入学 - {p.name}
+              </option>
+            ))}
           </select>
         </label>
       </div>

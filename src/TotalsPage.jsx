@@ -21,12 +21,21 @@ function TotalsPage() {
     }
   }, []);
 
-  // 合計単位数計算
+  // 合計単位数計算（未来の日付は除外）
   useEffect(() => {
     const totalsData = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // 時間をリセットして日付だけで比較できるように
+
     for (let key in localStorage) {
       if (key.startsWith("attendance-")) {
         try {
+          // キーから日付文字列を取得
+          const dateStr = key.replace("attendance-", "");
+          const dateObj = new Date(dateStr);
+          // 未来の日付はスキップ
+          if (dateObj > today) continue;
+
           const data = JSON.parse(localStorage.getItem(key));
           if (data && data.participants) {
             for (const [name, info] of Object.entries(data.participants)) {
@@ -86,29 +95,34 @@ function TotalsPage() {
       return b.total - a.total;
     });
 
-  // エクスポート処理は変更不要（必要なら追記可能）
-
+  // エクスポート処理は未来日を除外してもよければ以下のように修正してください
   const exportExcel = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     // シート1：合計単位数一覧
     const totalsSheetData = [["名前", "入学年度", "合計単位数"]];
     for (const { name, year, total } of sortedEntries) {
       totalsSheetData.push([name, year === 9999 ? "" : year, total]);
     }
 
-    // シート2：全参加者の出席履歴
+    // シート2：全参加者の出席履歴（未来日除外）
     const attendanceSheetData = [["名前", "日付", "曜日", "単位数"]];
     for (let key in localStorage) {
       if (key.startsWith("attendance-")) {
         try {
-          const date = key.replace("attendance-", "");
+          const dateStr = key.replace("attendance-", "");
+          const dateObj = new Date(dateStr);
+          if (dateObj > today) continue;
+
           const data = JSON.parse(localStorage.getItem(key));
           if (data && data.participants) {
             for (const [name, info] of Object.entries(data.participants)) {
               if (info.isPresent) {
                 attendanceSheetData.push([
                   name,
-                  date,
-                  getWeekday(date),
+                  dateStr,
+                  getWeekday(dateStr),
                   info.units,
                 ]);
               }
