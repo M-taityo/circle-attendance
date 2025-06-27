@@ -191,7 +191,7 @@ function DatePage() {
       <div style={{ fontSize: "18px", marginBottom: "10px" }}>
         <label>
           出席する：
-          <label>
+          <label style={{ marginRight: "1ch" }} className="attendance-option">
             <input
               type="radio"
               name="isPresent"
@@ -201,7 +201,7 @@ function DatePage() {
             />
             〇
           </label>
-          <label>
+          <label style={{ marginRight: "1ch" }} className="attendance-option">
             <input
               type="radio"
               name="isPresent"
@@ -211,7 +211,7 @@ function DatePage() {
             />
             ×
           </label>
-          <label>
+          <label className="attendance-option">
             <input
               type="radio"
               name="isPresent"

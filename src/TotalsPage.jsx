@@ -23,7 +23,7 @@ function TotalsPage() {
   useEffect(() => {
     const totalsData = {};
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setHours(23, 59, 59, 999);
 
     for (let key in localStorage) {
       if (key.startsWith("attendance-")) {

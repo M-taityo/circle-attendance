@@ -39,3 +39,38 @@
   background: #ffe082;
   border-radius: 50%;
 }
+
+
+/* ダークモード対応 */
+@media (prefers-color-scheme: dark) {
+  /* カレンダー全体の背景 */
+  .react-calendar {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-color: #888888 !important;
+  }
+
+  /* カレンダーのセル */
+  .react-calendar__tile {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* 練習日のハイライト色を明るい緑に */
+  .practice-day {
+    background-color: #c8f7c5 !important; /* 明るい緑 */
+    color: #000000 !important;
+  }
+
+  /* 選択された日 */
+  .react-calendar__tile--active {
+    background: #2196f3 !important;
+    color: white !important;
+  }
+
+  /* 今日の日付 */
+  .react-calendar__tile--now {
+    background: #ffeb3b !important;
+    color: #000000 !important;
+  }
+}
