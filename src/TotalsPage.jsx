@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import * as XLSX from "xlsx";
 
 function TotalsPage() {
   const [totals, setTotals] = useState({});
   const [participantsList, setParticipantsList] = useState([]);
   const [selectedName, setSelectedName] = useState(null);
   const [attendanceList, setAttendanceList] = useState([]);
-  const [downloadUrl, setDownloadUrl] = useState(null); // ダウンロードURL保存
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -84,62 +82,56 @@ function TotalsPage() {
       return b.total - a.total;
     });
 
-const exportExcel = () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const exportCSV = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  const totalsSheetData = [["名前", "入学年度", "合計単位数"]];
-  for (const { name, year, total } of sortedEntries) {
-    totalsSheetData.push([name, year === 9999 ? "" : year, total]);
-  }
+    const totalsCSV = [["名前", "入学年度", "合計単位数"]];
+    for (const { name, year, total } of sortedEntries) {
+      totalsCSV.push([name, year === 9999 ? "" : year, total]);
+    }
 
-  const attendanceSheetData = [["名前", "日付", "曜日", "単位数"]];
-  for (let key in localStorage) {
-    if (key.startsWith("attendance-")) {
-      try {
-        const dateStr = key.replace("attendance-", "");
-        const dateObj = new Date(dateStr);
-        if (dateObj > today) continue;
+    const attendanceCSV = [["名前", "日付", "曜日", "単位数"]];
+    for (let key in localStorage) {
+      if (key.startsWith("attendance-")) {
+        try {
+          const dateStr = key.replace("attendance-", "");
+          const dateObj = new Date(dateStr);
+          if (dateObj > today) continue;
 
-        const data = JSON.parse(localStorage.getItem(key));
-        if (data && data.participants) {
-          for (const [name, info] of Object.entries(data.participants)) {
-            if (info.isPresent) {
-              attendanceSheetData.push([
-                name,
-                dateStr,
-                getWeekday(dateStr),
-                info.units,
-              ]);
+          const data = JSON.parse(localStorage.getItem(key));
+          if (data && data.participants) {
+            for (const [name, info] of Object.entries(data.participants)) {
+              if (info.isPresent) {
+                attendanceCSV.push([
+                  name,
+                  dateStr,
+                  getWeekday(dateStr),
+                  info.units,
+                ]);
+              }
             }
           }
-        }
-      } catch {}
+        } catch {}
+      }
     }
-  }
 
-  const wb = XLSX.utils.book_new();
-  const wsTotals = XLSX.utils.aoa_to_sheet(totalsSheetData);
-  XLSX.utils.book_append_sheet(wb, wsTotals, "合計単位数");
+    const arrayToCSV = (data) =>
+      data.map((row) => row.map((val) => `"${val}"`).join(",")).join("\n");
 
-  const wsAttendance = XLSX.utils.aoa_to_sheet(attendanceSheetData);
-  XLSX.utils.book_append_sheet(wb, wsAttendance, "出席履歴");
+    const download = (csvString, filename) => {
+      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
 
-  const base64data = XLSX.write(wb, {
-    bookType: "xlsx",
-    type: "base64",
-  });
-
-  const url = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64data}`;
-
-  // スマホでうまくダウンロードされることが多い方法
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "attendance_totals.xlsx";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
+    download(arrayToCSV(totalsCSV), "合計単位数一覧.csv");
+    download(arrayToCSV(attendanceCSV), "出席履歴一覧.csv");
+  };
 
   return (
     <div>
@@ -161,7 +153,7 @@ const exportExcel = () => {
       </button>
 
       <button
-        onClick={exportExcel}
+        onClick={exportCSV}
         style={{
           marginLeft: "10px",
           marginBottom: "20px",
@@ -174,28 +166,8 @@ const exportExcel = () => {
           cursor: "pointer",
         }}
       >
-        出席履歴と合計単位数をエクスポート
+        出席履歴と合計単位数をCSVでエクスポート
       </button>
-
-      {/* スマホ対応ダウンロードリンク表示 */}
-      {downloadUrl && (
-        <div style={{ marginTop: "10px" }}>
-          <a
-            href={downloadUrl}
-            download="attendance_totals.xlsx"
-            style={{
-              display: "inline-block",
-              padding: "8px 12px",
-              backgroundColor: "#4caf50",
-              color: "white",
-              borderRadius: "4px",
-              textDecoration: "none",
-            }}
-          >
-            Excelファイルをダウンロード
-          </a>
-        </div>
-      )}
 
       {sortedEntries.length === 0 && <p>出席記録がありません</p>}
       <ul>
