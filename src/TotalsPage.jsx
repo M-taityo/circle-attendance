@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import * as XLSX from "xlsx"; // 追加
 
 function TotalsPage() {
   const [totals, setTotals] = useState({});
   const [participantsList, setParticipantsList] = useState([]);
   const [selectedName, setSelectedName] = useState(null);
   const [attendanceList, setAttendanceList] = useState([]);
+  const [downloadUrl, setDownloadUrl] = useState(null); // 追加
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -82,16 +84,16 @@ function TotalsPage() {
       return b.total - a.total;
     });
 
-  const exportCSV = () => {
+  const exportExcel = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const totalsCSV = [["名前", "入学年度", "合計単位数"]];
+    const totalsSheet = [["名前", "入学年度", "合計単位数"]];
     for (const { name, year, total } of sortedEntries) {
-      totalsCSV.push([name, year === 9999 ? "" : year, total]);
+      totalsSheet.push([name, year === 9999 ? "" : year, total]);
     }
 
-    const attendanceCSV = [["名前", "日付", "曜日", "単位数"]];
+    const attendanceSheet = [["名前", "日付", "曜日", "単位数"]];
     for (let key in localStorage) {
       if (key.startsWith("attendance-")) {
         try {
@@ -103,7 +105,7 @@ function TotalsPage() {
           if (data && data.participants) {
             for (const [name, info] of Object.entries(data.participants)) {
               if (info.isPresent) {
-                attendanceCSV.push([
+                attendanceSheet.push([
                   name,
                   dateStr,
                   getWeekday(dateStr),
@@ -116,21 +118,15 @@ function TotalsPage() {
       }
     }
 
-    const arrayToCSV = (data) =>
-      data.map((row) => row.map((val) => `"${val}"`).join(",")).join("\n");
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.aoa_to_sheet(totalsSheet);
+    const ws2 = XLSX.utils.aoa_to_sheet(attendanceSheet);
+    XLSX.utils.book_append_sheet(wb, ws1, "合計単位数");
+    XLSX.utils.book_append_sheet(wb, ws2, "出席履歴");
 
-    const download = (csvString, filename) => {
-      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.setAttribute("download", filename);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    };
-
-    download(arrayToCSV(totalsCSV), "合計単位数一覧.csv");
-    download(arrayToCSV(attendanceCSV), "出席履歴一覧.csv");
+    const base64 = XLSX.write(wb, { bookType: "xlsx", type: "base64" });
+    const url = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`;
+    setDownloadUrl(url);
   };
 
   return (
@@ -153,21 +149,40 @@ function TotalsPage() {
       </button>
 
       <button
-        onClick={exportCSV}
+        onClick={exportExcel}
         style={{
           marginLeft: "10px",
           marginBottom: "20px",
           padding: "6px 12px",
           fontSize: "16px",
-          backgroundColor: "#4caf50",
+          backgroundColor: "#2196f3",
           color: "white",
           border: "none",
           borderRadius: "4px",
           cursor: "pointer",
         }}
       >
-        出席履歴と合計単位数をCSVでエクスポート
+        Excelファイルでエクスポート
       </button>
+
+      {downloadUrl && (
+        <div style={{ marginBottom: "20px" }}>
+          <a
+            href={downloadUrl}
+            download="attendance_data.xlsx"
+            style={{
+              display: "inline-block",
+              padding: "8px 16px",
+              backgroundColor: "#4caf50",
+              color: "white",
+              borderRadius: "4px",
+              textDecoration: "none",
+            }}
+          >
+            📥 Excelファイルをダウンロード
+          </a>
+        </div>
+      )}
 
       {sortedEntries.length === 0 && <p>出席記録がありません</p>}
       <ul>
