@@ -1,16 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 
 function TotalsPage() {
   const [totals, setTotals] = useState({});
   const [participantsList, setParticipantsList] = useState([]);
   const [selectedName, setSelectedName] = useState(null);
   const [attendanceList, setAttendanceList] = useState([]);
+  const [downloadUrl, setDownloadUrl] = useState(null); // ダウンロードURL保存
   const navigate = useNavigate();
 
-  // participantsListを取得
   useEffect(() => {
     const storedParticipants = localStorage.getItem("participants");
     if (storedParticipants) {
@@ -21,19 +20,16 @@ function TotalsPage() {
     }
   }, []);
 
-  // 合計単位数計算（未来の日付は除外）
   useEffect(() => {
     const totalsData = {};
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // 時間をリセットして日付だけで比較できるように
+    today.setHours(0, 0, 0, 0);
 
     for (let key in localStorage) {
       if (key.startsWith("attendance-")) {
         try {
-          // キーから日付文字列を取得
           const dateStr = key.replace("attendance-", "");
           const dateObj = new Date(dateStr);
-          // 未来の日付はスキップ
           if (dateObj > today) continue;
 
           const data = JSON.parse(localStorage.getItem(key));
@@ -44,9 +40,7 @@ function TotalsPage() {
               }
             }
           }
-        } catch {
-          // ignore JSON parse errors
-        }
+        } catch {}
       }
     }
     setTotals(totalsData);
@@ -73,40 +67,32 @@ function TotalsPage() {
     setAttendanceList(list);
   };
 
-  // 曜日取得関数
   const getWeekday = (dateStr) => {
     const date = new Date(dateStr);
     const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
     return weekdays[date.getDay()];
   };
 
-  // 参加者情報と合計単位数でソートした配列を作成
   const sortedEntries = Object.entries(totals)
     .map(([name, total]) => {
-      // participantsListから入学年度を探す
       const participant = participantsList.find((p) => p.name === name);
-      const year = participant ? participant.year : 9999; // 見つからなければ後ろに回す
+      const year = participant ? participant.year : 9999;
       return { name, total, year };
     })
     .sort((a, b) => {
-      // ①年の昇順（古い順）
       if (a.year !== b.year) return a.year - b.year;
-      // ②単位数の降順
       return b.total - a.total;
     });
 
-  // エクスポート処理は未来日を除外してもよければ以下のように修正してください
   const exportExcel = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // シート1：合計単位数一覧
     const totalsSheetData = [["名前", "入学年度", "合計単位数"]];
     for (const { name, year, total } of sortedEntries) {
       totalsSheetData.push([name, year === 9999 ? "" : year, total]);
     }
 
-    // シート2：全参加者の出席履歴（未来日除外）
     const attendanceSheetData = [["名前", "日付", "曜日", "単位数"]];
     for (let key in localStorage) {
       if (key.startsWith("attendance-")) {
@@ -132,23 +118,22 @@ function TotalsPage() {
       }
     }
 
-    // ブック作成
     const wb = XLSX.utils.book_new();
-
-    // 合計単位数シート追加
     const wsTotals = XLSX.utils.aoa_to_sheet(totalsSheetData);
     XLSX.utils.book_append_sheet(wb, wsTotals, "合計単位数");
-
-    // 出席履歴シート追加
     const wsAttendance = XLSX.utils.aoa_to_sheet(attendanceSheetData);
     XLSX.utils.book_append_sheet(wb, wsAttendance, "出席履歴");
 
-    // バイナリデータ作成
     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-
-    // ファイル保存
     const blob = new Blob([wbout], { type: "application/octet-stream" });
-    saveAs(blob, "attendance_totals.xlsx");
+
+    // 以前のURLを解放
+    if (downloadUrl) {
+      URL.revokeObjectURL(downloadUrl);
+    }
+
+    const url = URL.createObjectURL(blob);
+    setDownloadUrl(url); // 👈 URLをセット
   };
 
   return (
@@ -186,6 +171,26 @@ function TotalsPage() {
       >
         出席履歴と合計単位数をエクスポート
       </button>
+
+      {/* スマホ対応ダウンロードリンク表示 */}
+      {downloadUrl && (
+        <div style={{ marginTop: "10px" }}>
+          <a
+            href={downloadUrl}
+            download="attendance_totals.xlsx"
+            style={{
+              display: "inline-block",
+              padding: "8px 12px",
+              backgroundColor: "#4caf50",
+              color: "white",
+              borderRadius: "4px",
+              textDecoration: "none",
+            }}
+          >
+            Excelファイルをダウンロード
+          </a>
+        </div>
+      )}
 
       {sortedEntries.length === 0 && <p>出席記録がありません</p>}
       <ul>
