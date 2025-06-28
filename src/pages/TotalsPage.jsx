@@ -1,21 +1,37 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import * as XLSX from "xlsx"; // 追加
+import * as XLSX from "xlsx";
 
 function TotalsPage() {
   const [totals, setTotals] = useState({});
   const [participantsList, setParticipantsList] = useState([]);
+  const [grades, setGrades] = useState({});
   const [selectedName, setSelectedName] = useState(null);
   const [attendanceList, setAttendanceList] = useState([]);
-  const [downloadUrl, setDownloadUrl] = useState(null); // 追加
   const navigate = useNavigate();
+
+  const getLatestRankDate = (name) => {
+    const rankList = grades[name];
+    if (!Array.isArray(rankList) || rankList.length === 0) return null;
+    const dates = rankList
+      .map((entry) => new Date(entry.date))
+      .filter((d) => !isNaN(d));
+    if (dates.length === 0) return null;
+    return new Date(Math.max(...dates));
+  };
 
   useEffect(() => {
     const storedParticipants = localStorage.getItem("participants");
     if (storedParticipants) {
       try {
-        const parsed = JSON.parse(storedParticipants);
-        setParticipantsList(parsed);
+        setParticipantsList(JSON.parse(storedParticipants));
+      } catch {}
+    }
+
+    const storedRanks = localStorage.getItem("ranks");
+    if (storedRanks) {
+      try {
+        setGrades(JSON.parse(storedRanks));
       } catch {}
     }
   }, []);
@@ -30,34 +46,44 @@ function TotalsPage() {
         try {
           const dateStr = key.replace("attendance-", "");
           const dateObj = new Date(dateStr);
-          if (dateObj > today) continue;
+          if (isNaN(dateObj) || dateObj > today) continue;
 
           const data = JSON.parse(localStorage.getItem(key));
-          if (data && data.participants) {
+          if (data?.participants) {
             for (const [name, info] of Object.entries(data.participants)) {
-              if (info.isPresent && !isNaN(info.units)) {
-                totalsData[name] = (totalsData[name] || 0) + Number(info.units);
+              if (!info.isPresent || isNaN(info.units)) continue;
+
+              const thresholdDate = getLatestRankDate(name);
+              if (thresholdDate) {
+                const cloneDate = new Date(dateObj);
+                cloneDate.setHours(0, 0, 0, 0);
+                thresholdDate.setHours(0, 0, 0, 0);
+                if (cloneDate < thresholdDate) continue;
               }
+
+              totalsData[name] = (totalsData[name] || 0) + Number(info.units);
             }
           }
         } catch {}
       }
     }
+
     setTotals(totalsData);
-  }, []);
+  }, [grades]);
 
   const onClickName = (name) => {
     const list = [];
     for (let key in localStorage) {
       if (key.startsWith("attendance-")) {
         try {
+          const dateStr = key.replace("attendance-", "");
+          const dateObj = new Date(dateStr);
+          if (isNaN(dateObj)) continue;
+
           const data = JSON.parse(localStorage.getItem(key));
-          if (data && data.participants && data.participants[name]) {
+          if (data?.participants?.[name]?.isPresent) {
             const info = data.participants[name];
-            if (info.isPresent) {
-              const date = key.replace("attendance-", "");
-              list.push({ date, units: info.units });
-            }
+            list.push({ date: dateStr, units: info.units });
           }
         } catch {}
       }
@@ -93,30 +119,49 @@ function TotalsPage() {
       totalsSheet.push([name, year === 9999 ? "" : year, total]);
     }
 
-    const attendanceSheet = [["名前", "日付", "曜日", "単位数"]];
+    // 出席履歴シート（名前ごとにまとめ、日付降順）
+    const attendanceData = {};
+
     for (let key in localStorage) {
       if (key.startsWith("attendance-")) {
         try {
           const dateStr = key.replace("attendance-", "");
           const dateObj = new Date(dateStr);
-          if (dateObj > today) continue;
+          if (isNaN(dateObj) || dateObj > today) continue;
 
           const data = JSON.parse(localStorage.getItem(key));
-          if (data && data.participants) {
+          if (data?.participants) {
             for (const [name, info] of Object.entries(data.participants)) {
-              if (info.isPresent) {
-                attendanceSheet.push([
-                  name,
-                  dateStr,
-                  getWeekday(dateStr),
-                  info.units,
-                ]);
-              }
+              if (!info.isPresent) continue;
+
+              if (!attendanceData[name]) attendanceData[name] = [];
+              attendanceData[name].push({
+                date: dateStr,
+                weekday: getWeekday(dateStr),
+                units: info.units,
+              });
             }
           }
         } catch {}
       }
     }
+
+    const attendanceSheet = [[]];
+  Object.entries(attendanceData)
+    .sort(([a], [b]) => a.localeCompare(b, "ja"))
+    .forEach(([name, records]) => {
+      attendanceSheet.push([`${name} さんの出席履歴`]);
+      attendanceSheet.push(["名前", "日付", "曜日", "単位数"]);
+
+      records
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .forEach(({ date, weekday, units }) => {
+          attendanceSheet.push([name, date, weekday, units]);
+        });
+
+      attendanceSheet.push([]); // 空行で区切る（お好みで）
+    });
+
 
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.aoa_to_sheet(totalsSheet);
@@ -126,63 +171,27 @@ function TotalsPage() {
 
     const base64 = XLSX.write(wb, { bookType: "xlsx", type: "base64" });
     const url = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`;
-    setDownloadUrl(url);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "attendance_data.xlsx";
+    a.click();
   };
 
   return (
     <div>
       <h1>合計単位数</h1>
 
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          marginBottom: "20px",
-          padding: "6px 12px",
-          fontSize: "16px",
-          backgroundColor: "#eee",
-          border: "1px solid #ccc",
-          borderRadius: "4px",
-          cursor: "pointer",
-        }}
-      >
+      <button onClick={() => navigate(-1)} style={{ marginBottom: "20px" }}>
         ← 戻る
       </button>
 
       <button
         onClick={exportExcel}
-        style={{
-          marginLeft: "10px",
-          marginBottom: "20px",
-          padding: "6px 12px",
-          fontSize: "16px",
-          backgroundColor: "#2196f3",
-          color: "white",
-          border: "none",
-          borderRadius: "4px",
-          cursor: "pointer",
-        }}
+        style={{ marginLeft: "10px", marginBottom: "20px" }}
       >
         Excelファイルでエクスポート
       </button>
-
-      {downloadUrl && (
-        <div style={{ marginBottom: "20px" }}>
-          <a
-            href={downloadUrl}
-            download="attendance_data.xlsx"
-            style={{
-              display: "inline-block",
-              padding: "8px 16px",
-              backgroundColor: "#4caf50",
-              color: "white",
-              borderRadius: "4px",
-              textDecoration: "none",
-            }}
-          >
-            📥 Excelファイルをダウンロード
-          </a>
-        </div>
-      )}
 
       {sortedEntries.length === 0 && <p>出席記録がありません</p>}
       <ul>
@@ -220,7 +229,10 @@ function TotalsPage() {
                     <td>
                       <Link
                         to={`/date/${date}`}
-                        style={{ color: "blue", textDecoration: "underline" }}
+                        style={{
+                          color: "blue",
+                          textDecoration: "underline",
+                        }}
                       >
                         {date}（{getWeekday(date)}）
                       </Link>

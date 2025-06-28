@@ -20,7 +20,7 @@ function ParticipantsPage() {
       return;
     }
 
-    const newParticipant = { name: name.trim(), year };
+    const newParticipant = { name: name.trim(), year, ranks: [] };
     const updated = [...participants, newParticipant];
 
     setParticipants(updated);

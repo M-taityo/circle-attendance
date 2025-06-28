@@ -93,6 +93,8 @@ function Home() {
         <Link to="/participants">「参加者管理」ページへ</Link>
         <br />
         <Link to="/totals">「合計単位数」ページへ</Link>
+        <br />
+        <Link to="/ranks">「級・段」ページへ</Link> {/* ← 追加 */}
       </nav>
 
       <Calendar
