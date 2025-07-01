@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 
 function TotalsPage() {
   const [totals, setTotals] = useState({});
+  const [cumulativeTotals, setCumulativeTotals] = useState({});
   const [participantsList, setParticipantsList] = useState([]);
   const [grades, setGrades] = useState({});
   const [selectedName, setSelectedName] = useState(null);
@@ -38,6 +39,7 @@ function TotalsPage() {
 
   useEffect(() => {
     const totalsData = {};
+    const cumulativeData = {};
     const today = new Date();
     today.setHours(23, 59, 59, 999);
 
@@ -53,6 +55,9 @@ function TotalsPage() {
             for (const [name, info] of Object.entries(data.participants)) {
               if (!info.isPresent || isNaN(info.units)) continue;
 
+              const units = Number(info.units);
+              cumulativeData[name] = (cumulativeData[name] || 0) + units;
+
               const thresholdDate = getLatestRankDate(name);
               if (thresholdDate) {
                 const cloneDate = new Date(dateObj);
@@ -61,18 +66,26 @@ function TotalsPage() {
                 if (cloneDate < thresholdDate) continue;
               }
 
-              totalsData[name] = (totalsData[name] || 0) + Number(info.units);
+              totalsData[name] = (totalsData[name] || 0) + units;
             }
           }
         } catch {}
       }
     }
 
+    for (const p of participantsList) {
+      if (!(p.name in totalsData)) totalsData[p.name] = 0;
+      if (!(p.name in cumulativeData)) cumulativeData[p.name] = 0;
+    }
+
     setTotals(totalsData);
+    setCumulativeTotals(cumulativeData);
   }, [grades]);
 
   const onClickName = (name) => {
     const list = [];
+
+    // 出席記録
     for (let key in localStorage) {
       if (key.startsWith("attendance-")) {
         try {
@@ -83,12 +96,29 @@ function TotalsPage() {
           const data = JSON.parse(localStorage.getItem(key));
           if (data?.participants?.[name]?.isPresent) {
             const info = data.participants[name];
-            list.push({ date: dateStr, units: info.units });
+            list.push({ type: "attendance", date: dateStr, units: info.units });
           }
         } catch {}
       }
     }
-    list.sort((a, b) => (a.date < b.date ? 1 : -1));
+
+    // 昇級・昇段記録
+    const ranks = grades[name] || [];
+    for (const { date, rank } of ranks) {
+      list.push({ type: "rank", date, rank });
+    }
+
+    // 両方まとめて日付順（降順）でソート
+    list.sort((a, b) => {
+      if (a.date < b.date) return 1;
+      if (a.date > b.date) return -1;
+
+      if (a.type === "attendance" && b.type === "rank") return -1;
+      if (a.type === "rank" && b.type === "attendance") return 1;
+
+      return 0;
+    });
+  
     setSelectedName(name);
     setAttendanceList(list);
   };
@@ -114,14 +144,18 @@ function TotalsPage() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const totalsSheet = [["名前", "入学年度", "合計単位数"]];
+    const totalsSheet = [["名前", "入学年度", "合計単位数", "累計単位数"]];
     for (const { name, year, total } of sortedEntries) {
-      totalsSheet.push([name, year === 9999 ? "" : year, total]);
+      const cumulative = cumulativeTotals[name] ?? total;
+      totalsSheet.push([
+        name,
+        year === 9999 ? "" : year,
+        total,
+        cumulative,
+      ]);
     }
 
-    // 出席履歴シート（名前ごとにまとめ、日付降順）
     const attendanceData = {};
-
     for (let key in localStorage) {
       if (key.startsWith("attendance-")) {
         try {
@@ -147,21 +181,26 @@ function TotalsPage() {
     }
 
     const attendanceSheet = [[]];
-  Object.entries(attendanceData)
-    .sort(([a], [b]) => a.localeCompare(b, "ja"))
-    .forEach(([name, records]) => {
-      attendanceSheet.push([`${name} さんの出席履歴`]);
-      attendanceSheet.push(["名前", "日付", "曜日", "単位数"]);
+    Object.entries(attendanceData)
+      .sort(([a], [b]) => a.localeCompare(b, "ja"))
+      .forEach(([name, records]) => {
+        attendanceSheet.push([`${name} さんの出席履歴`]);
+        attendanceSheet.push(["名前", "日付", "曜日", "単位数"]);
+       
+        let total = 0;
 
-      records
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .forEach(({ date, weekday, units }) => {
-          attendanceSheet.push([name, date, weekday, units]);
-        });
+        records
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .forEach(({ date, weekday, units }) => {
+            total += Number(units);
+            attendanceSheet.push([name, date, weekday, units]);
+          });
 
-      attendanceSheet.push([]); // 空行で区切る（お好みで）
-    });
-
+        // 累計（トータル）を追加
+        attendanceSheet.push(["", "", "累計", total]);
+      
+        attendanceSheet.push([]);
+      });
 
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.aoa_to_sheet(totalsSheet);
@@ -171,7 +210,6 @@ function TotalsPage() {
 
     const base64 = XLSX.write(wb, { bookType: "xlsx", type: "base64" });
     const url = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`;
-
     const a = document.createElement("a");
     a.href = url;
     a.download = "attendance_data.xlsx";
@@ -202,6 +240,10 @@ function TotalsPage() {
             onClick={() => onClickName(name)}
           >
             {name}（{year === 9999 ? "年度不明" : year}年入学） : {total} 単位
+            {cumulativeTotals[name] != null &&
+              cumulativeTotals[name] !== total && (
+                <>（累計：{cumulativeTotals[name]}単位）</>
+              )}
           </li>
         ))}
       </ul>
@@ -220,26 +262,38 @@ function TotalsPage() {
               <thead>
                 <tr>
                   <th>日付</th>
-                  <th>単位数</th>
+                  <th>内容</th>
                 </tr>
               </thead>
               <tbody>
-                {attendanceList.map(({ date, units }) => (
-                  <tr key={date}>
-                    <td>
-                      <Link
-                        to={`/date/${date}`}
-                        style={{
-                          color: "blue",
-                          textDecoration: "underline",
-                        }}
+                {attendanceList.map((entry, idx) => {
+                  const dateDisplay = `${entry.date}（${getWeekday(entry.date)}）`;
+
+                  if (entry.type === "rank") {
+                    return (
+                      <tr
+                        key={idx}
+                        style={{ backgroundColor: "#ffd" }}
                       >
-                        {date}（{getWeekday(date)}）
-                      </Link>
-                    </td>
-                    <td>{units}</td>
-                  </tr>
-                ))}
+                        <td colSpan="2">{dateDisplay}：{entry.rank}</td>
+                      </tr>
+                    );
+                  }
+
+                  return (
+                    <tr key={idx}>
+                      <td>
+                        <Link
+                          to={`/date/${entry.date}`}
+                          style={{ color: "blue", textDecoration: "underline" }}
+                        >
+                          {dateDisplay}
+                        </Link>
+                      </td>
+                      <td>{entry.units}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
