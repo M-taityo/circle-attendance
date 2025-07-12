@@ -1,6 +1,11 @@
-/* 出席がある日付に適用するスタイル */
-.highlight {
+.practice-day {
   background-color: #c8f7c5 !important;
+  font-weight: bold;
+  border-radius: 50%;
+}
+
+.tile-today {
+  background-color: yellow !important;
   font-weight: bold;
   border-radius: 50%;
 }

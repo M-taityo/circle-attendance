@@ -1,34 +1,42 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { doc, getDoc, updateDoc, setDoc, getDocs, collection } from "firebase/firestore";
+import { db } from "./firebase";
 
 function DatePage() {
-  const { date } = useParams();
+  const { date } = useParams(); // "2025-07-08"
   const navigate = useNavigate();
 
   const [attendanceData, setAttendanceData] = useState({ participants: {} });
   const [participantsList, setParticipantsList] = useState([]);
+  const [isPracticeDay, setIsPracticeDay] = useState(false);
 
-  // 参加者選択関連の状態
   const [participantName, setParticipantName] = useState("");
   const [isPresent, setIsPresent] = useState(true);
   const [units, setUnits] = useState(2);
   const [customUnits, setCustomUnits] = useState("");
   const [editingName, setEditingName] = useState(null);
 
-  const [isPracticeDay, setIsPracticeDay] = useState(false);
-
-  const getPrevDate = () => {
-    const d = new Date(date);
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().slice(0, 10);
+  // 月単位ドキュメントID取得（例：2025-07）
+  const getDocId = (dateStr) => {
+    const [year, month] = dateStr.split("-");
+    return `${year}-${month}`;
   };
 
-  const getNextDate = () => {
-    const d = new Date(date);
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
+  // 月ドキュメントから日付データ取得
+  const getDateData = (docData, dateStr) => {
+    if (docData && docData[dateStr]) {
+      return docData[dateStr];
+    }
+    // なければ空データ＋デフォルト練習日判定
+    const dayOfWeek = new Date(dateStr).getDay();
+    return {
+      participants: {},
+      isPracticeDay: [1, 4, 6].includes(dayOfWeek),
+    };
   };
 
+  // 日付を日本語形式で表示
   const formatJapaneseDate = (dateStr) => {
     const d = new Date(dateStr);
     const y = d.getFullYear();
@@ -39,47 +47,70 @@ function DatePage() {
     return `${y}年${m}月${day}日（${weekday}）の出席登録`;
   };
 
+  // 前日取得
+  const getPrevDate = () => {
+    const d = new Date(date);
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  };
+
+  // 翌日取得
+  const getNextDate = () => {
+    const d = new Date(date);
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  };
+
+  // Firestoreから月ドキュメント読み込み＋当日データセット
   useEffect(() => {
-    const stored = localStorage.getItem(`attendance-${date}`);
-    if (stored) {
-      const data = JSON.parse(stored);
-      setAttendanceData(data);
-      setIsPracticeDay(data.isPracticeDay ?? false);
-    } else {
-      const dayOfWeek = new Date(date).getDay();
-      const defaultPracticeDay = [1, 4, 6].includes(dayOfWeek);
-      const newData = {
-        participants: {},
-        isPracticeDay: defaultPracticeDay,
-      };
-      setAttendanceData(newData);
-      setIsPracticeDay(defaultPracticeDay);
-    }
+    async function fetchData() {
+      try {
+        const docId = getDocId(date);
+        const docRef = doc(db, "attendance", docId);
+        const docSnap = await getDoc(docRef);
+        let allMonthData = {};
+        if (docSnap.exists()) {
+          allMonthData = docSnap.data();
+        } else {
+          await setDoc(docRef, {}); // 空の月データを作成
+        }
 
-    const storedParticipants = localStorage.getItem("participants");
-    if (storedParticipants) {
-      const parsed = JSON.parse(storedParticipants);
-      // 入学年度昇順にソート
-      parsed.sort((a, b) => a.year - b.year);
-      setParticipantsList(parsed);
-    } else {
-      setParticipantsList([]);
-    }
+        const dayData = getDateData(allMonthData, date);
+        setAttendanceData(dayData);
+        setIsPracticeDay(dayData.isPracticeDay);
 
-    resetForm();
+        // 参加者リスト読み込み（participants コレクション）
+        const participantsSnapshot = await getDocs(collection(db, "participants"));
+        let participants = [];
+        participantsSnapshot.forEach((doc) => {
+          participants.push(doc.data());
+        });
+        participants.sort((a, b) => a.year - b.year);
+        setParticipantsList(participants);
+      } catch (e) {
+        alert("データの読み込みに失敗しました");
+        console.error(e);
+      }
+    }
+    fetchData();
   }, [date]);
 
   const resetForm = () => {
     setParticipantName("");
     setIsPresent(true);
-
     const selectedDate = new Date(date);
     setUnits(selectedDate.getDay() === 6 ? 2.5 : 2);
     setCustomUnits("");
     setEditingName(null);
   };
+  useEffect(() => {
+    if (participantsList.length > 0) {
+      resetForm();
+    }
+  }, [participantsList]);
 
-  const saveAttendance = () => {
+  // 出席情報保存
+  const saveAttendance = async () => {
     if (!participantName.trim()) {
       alert("参加者名を入力してください");
       return;
@@ -104,19 +135,62 @@ function DatePage() {
       [participantName]: { isPresent, units: savedUnits },
     };
 
-    const newData = {
+    const newDataForDate = {
       ...attendanceData,
       participants: newParticipants,
       isPracticeDay,
     };
 
-    setAttendanceData(newData);
-    localStorage.setItem(`attendance-${date}`, JSON.stringify(newData));
-
-    alert("出席情報を保存しました！");
-    resetForm();
+    try {
+      const docId = getDocId(date);
+      const docRef = doc(db, "attendance", docId);
+      await updateDoc(docRef, {
+        [date]: newDataForDate,
+      });
+      setAttendanceData(newDataForDate);
+      alert("出席情報を保存しました！");
+      resetForm();
+    } catch (e) {
+      // ドキュメントが存在しない場合は作成
+      try {
+        const docId = getDocId(date);
+        const docRef = doc(db, "attendance", docId);
+        await setDoc(docRef, {
+          [date]: newDataForDate,
+        });
+        setAttendanceData(newDataForDate);
+        alert("出席情報を保存しました！");
+        resetForm();
+      } catch (error) {
+        alert("保存に失敗しました");
+        console.error(error);
+      }
+    }
   };
 
+  // 練習日設定切替
+  const togglePracticeDay = async (checked) => {
+    setIsPracticeDay(checked);
+
+    const updatedData = {
+      ...attendanceData,
+      isPracticeDay: checked,
+    };
+
+    try {
+      const docId = getDocId(date);
+      const docRef = doc(db, "attendance", docId);
+      await updateDoc(docRef, {
+        [date]: updatedData,
+      });
+      setAttendanceData(updatedData);
+    } catch (e) {
+      alert("練習日設定の保存に失敗しました");
+      console.error(e);
+    }
+  };
+
+  // 編集開始
   const startEdit = (name) => {
     const info = attendanceData.participants[name];
     setParticipantName(name);
@@ -131,16 +205,31 @@ function DatePage() {
     setEditingName(name);
   };
 
-  const togglePracticeDay = (checked) => {
-    setIsPracticeDay(checked);
+  // 削除処理
+  const deleteAttendance = async (name) => {
+    if (!window.confirm(`${name} さんの出席情報を削除しますか？`)) return;
 
-    const updated = {
+    const newParticipants = { ...attendanceData.participants };
+    delete newParticipants[name];
+
+    const newDataForDate = {
       ...attendanceData,
-      isPracticeDay: checked,
+      participants: newParticipants,
     };
 
-    setAttendanceData(updated);
-    localStorage.setItem(`attendance-${date}`, JSON.stringify(updated));
+    try {
+      const docId = getDocId(date);
+      const docRef = doc(db, "attendance", docId);
+      await updateDoc(docRef, {
+        [date]: newDataForDate,
+      });
+      setAttendanceData(newDataForDate);
+      alert(`${name} さんの出席情報を削除しました。`);
+      resetForm();
+    } catch (e) {
+      alert("削除に失敗しました");
+      console.error(e);
+    }
   };
 
   return (
@@ -264,19 +353,7 @@ function DatePage() {
 
       {editingName && (
         <button
-          onClick={() => {
-            if (!window.confirm(`${editingName} さんの出席情報を削除しますか？`)) return;
-            const newParticipants = { ...attendanceData.participants };
-            delete newParticipants[editingName];
-            const newData = {
-              ...attendanceData,
-              participants: newParticipants,
-            };
-            setAttendanceData(newData);
-            localStorage.setItem(`attendance-${date}`, JSON.stringify(newData));
-            alert(`${editingName} さんの出席情報を削除しました。`);
-            resetForm();
-          }}
+          onClick={() => deleteAttendance(editingName)}
           style={{ marginLeft: "10px", color: "red" }}
         >
           削除

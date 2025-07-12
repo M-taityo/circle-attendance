@@ -1,4 +1,13 @@
 import { useState, useEffect } from "react";
+import { db } from "../firebase"; // firebase.jsの場所に合わせて調整してください
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 
 function RanksPage() {
   const [participants, setParticipants] = useState([]);
@@ -9,57 +18,102 @@ function RanksPage() {
 
   const rankOptions = ["無級", "三級", "一級", "初段", "二段", "三段"];
 
-  // 初期読み込み：参加者 & 昇級データ
+  // 参加者をFirestoreから読み込む
   useEffect(() => {
-    const storedParticipants = localStorage.getItem("participants");
-    const storedRanks = localStorage.getItem("ranks");
+    async function fetchParticipants() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "participants"));
+        const loadedParticipants = [];
+        querySnapshot.forEach((doc) => {
+          loadedParticipants.push(doc.data());
+        });
+        setParticipants(loadedParticipants);
+      } catch (error) {
+        console.error("参加者の読み込みに失敗しました", error);
+      }
+    }
 
-    if (storedParticipants) {
-      setParticipants(JSON.parse(storedParticipants));
-    }
-    if (storedRanks) {
-      setRanksData(JSON.parse(storedRanks));
-    }
+    fetchParticipants();
   }, []);
 
-  // 昇級データの保存
-  const saveRank = () => {
+  // 選択された参加者の級・段データをFirestoreから読み込む
+  useEffect(() => {
+    if (!selectedName) {
+      setRanksData({});
+      return;
+    }
+
+    async function fetchRanks() {
+      try {
+        const docRef = doc(db, "ranks", selectedName);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setRanksData((prev) => ({
+            ...prev,
+            [selectedName]: docSnap.data().ranks || [],
+          }));
+        } else {
+          setRanksData((prev) => ({
+            ...prev,
+            [selectedName]: [],
+          }));
+        }
+      } catch (error) {
+        console.error("昇級データの読み込みに失敗しました", error);
+      }
+    }
+
+    fetchRanks();
+  }, [selectedName]);
+
+  // 昇級データの保存（Firestoreに書き込み）
+  const saveRank = async () => {
     if (!selectedName || !selectedRank || !calendarDate) {
       alert("すべての項目を入力してください。");
       return;
     }
 
-    const updated = {
-      ...ranksData,
-      [selectedName]: [
-        ...(ranksData[selectedName] || []),
-        { rank: selectedRank, date: calendarDate },
-      ].sort((a, b) => new Date(a.date) - new Date(b.date)), // 昇順ソート
-    };
+    try {
+      const prevRanks = ranksData[selectedName] || [];
+      const updatedRanks = [...prevRanks, { rank: selectedRank, date: calendarDate }].sort(
+        (a, b) => new Date(a.date) - new Date(b.date)
+      );
 
-    setRanksData(updated);
-    localStorage.setItem("ranks", JSON.stringify(updated));
+      const docRef = doc(db, "ranks", selectedName);
+      await setDoc(docRef, { ranks: updatedRanks });
 
-    // 入力初期化
-    setCalendarDate("");
-    setSelectedRank("");
+      setRanksData((prev) => ({
+        ...prev,
+        [selectedName]: updatedRanks,
+      }));
+
+      setCalendarDate("");
+      setSelectedRank("");
+    } catch (error) {
+      console.error("昇級データの保存に失敗しました", error);
+      alert("保存に失敗しました。再度お試しください。");
+    }
   };
 
-  // 特定の履歴を削除
-  const deleteRankEntry = (indexToDelete) => {
+  // 履歴削除（Firestore上の配列から該当要素を除外して更新）
+  const deleteRankEntry = async (indexToDelete) => {
     if (!window.confirm("この履歴を削除しますか？")) return;
 
-    const updatedList = (ranksData[selectedName] || []).filter(
-      (_, index) => index !== indexToDelete
-    );
+    try {
+      const prevRanks = ranksData[selectedName] || [];
+      const updatedRanks = prevRanks.filter((_, i) => i !== indexToDelete);
 
-    const updated = {
-      ...ranksData,
-      [selectedName]: updatedList,
-    };
+      const docRef = doc(db, "ranks", selectedName);
+      await setDoc(docRef, { ranks: updatedRanks });
 
-    setRanksData(updated);
-    localStorage.setItem("ranks", JSON.stringify(updated));
+      setRanksData((prev) => ({
+        ...prev,
+        [selectedName]: updatedRanks,
+      }));
+    } catch (error) {
+      console.error("削除に失敗しました", error);
+      alert("削除に失敗しました。再度お試しください。");
+    }
   };
 
   return (

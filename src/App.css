@@ -19,12 +19,16 @@
 .practice-day {
   background-color: #b3e5fc !important; /* 水色背景 */
   border-radius: 50%;
+  position: relative;
+  z-index: 1; /* 今日の日付より背面 */
 }
 
 /* 練習日にホバーしたときのスタイル（任意） */
 .practice-day:hover {
   background-color: #81d4fa !important;
   cursor: pointer;
+  position: relative;
+  z-index: 1;
 }
 
 /* 選択された日（React Calendar の既定クラス） */
@@ -36,10 +40,12 @@
 
 /* 今日の日付を強調表示 */
 .react-calendar__tile--now {
-  background: #ffe082;
+  background: #ffe082 !important; /* 黄色背景 */
   border-radius: 50%;
+  position: relative;
+  z-index: 2; /* 練習日の上に表示 */
+  font-weight: bold;
 }
-
 
 /* ダークモード対応 */
 @media (prefers-color-scheme: dark) {
@@ -60,6 +66,8 @@
   .practice-day {
     background-color: #c8f7c5 !important; /* 明るい緑 */
     color: #000000 !important;
+    position: relative;
+    z-index: 1;
   }
 
   /* 選択された日 */
@@ -72,6 +80,9 @@
   .react-calendar__tile--now {
     background: #ffeb3b !important;
     color: #000000 !important;
+    position: relative;
+    z-index: 2;
+    font-weight: bold;
   }
 
   /* ナビゲーションバー（年月表示と矢印） */

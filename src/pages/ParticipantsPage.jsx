@@ -1,40 +1,68 @@
 import { useState, useEffect } from "react";
+import { 
+  collection, 
+  getDocs, 
+  setDoc, 
+  deleteDoc, 
+  doc 
+} from "firebase/firestore";
+import { db } from "../firebase"; // firebase.js のパスに合わせて調整してください
 
 function ParticipantsPage() {
   const [participants, setParticipants] = useState([]);
   const [name, setName] = useState("");
   const [year, setYear] = useState("");
 
-  // 読み込み
-  useEffect(() => {
-    const stored = localStorage.getItem("participants");
-    if (stored) {
-      setParticipants(JSON.parse(stored));
+  // Firestoreから参加者を読み込む
+  const loadParticipants = async () => {
+    try {
+      const participantsCol = collection(db, "participants");
+      const snapshot = await getDocs(participantsCol);
+      const list = snapshot.docs.map(doc => doc.data());
+      setParticipants(list);
+    } catch (error) {
+      console.error("参加者の読み込みエラー:", error);
     }
+  };
+
+  useEffect(() => {
+    loadParticipants();
   }, []);
 
-  // 保存処理
-  const addParticipant = () => {
+  // 参加者追加（Firestoreに書き込み）
+  const addParticipant = async () => {
     if (!name.trim() || !year.trim()) {
       alert("氏名と入学年度の両方を入力してください");
       return;
     }
-
     const newParticipant = { name: name.trim(), year, ranks: [] };
-    const updated = [...participants, newParticipant];
 
-    setParticipants(updated);
-    localStorage.setItem("participants", JSON.stringify(updated));
-    setName("");
-    setYear("");
+    try {
+      // ドキュメントIDに氏名を使う例。ユニークIDなら better
+      await setDoc(doc(db, "participants", newParticipant.name), newParticipant);
+
+      // ローカルステート更新（再読み込みでも良い）
+      setParticipants((prev) => [...prev, newParticipant]);
+
+      setName("");
+      setYear("");
+    } catch (error) {
+      console.error("参加者の追加エラー:", error);
+      alert("参加者の追加に失敗しました");
+    }
   };
 
-  // 削除処理
-  const deleteParticipant = (targetName) => {
+  // 参加者削除（Firestoreからも削除）
+  const deleteParticipant = async (targetName) => {
     if (!window.confirm(`${targetName} を削除しますか？`)) return;
-    const updated = participants.filter((p) => p.name !== targetName);
-    setParticipants(updated);
-    localStorage.setItem("participants", JSON.stringify(updated));
+
+    try {
+      await deleteDoc(doc(db, "participants", targetName));
+      setParticipants((prev) => prev.filter((p) => p.name !== targetName));
+    } catch (error) {
+      console.error("参加者の削除エラー:", error);
+      alert("参加者の削除に失敗しました");
+    }
   };
 
   return (

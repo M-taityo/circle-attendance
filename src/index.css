@@ -90,8 +90,13 @@ button:focus-visible {
 }
 
 /* 今日が練習日でも黄色を優先 */
-.tile-today.tile-practice {
+.react-calendar__tile.tile-today.practice-day {
   background-color: #ffd700;
   color: black;
   border-radius: 0;
+}
+
+.practice-day {
+  background-color: #d0f0c0 !important;
+  border-radius: 50%;
 }
