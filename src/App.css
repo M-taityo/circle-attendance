@@ -107,3 +107,13 @@
     outline: 2px solid #2196f3 !important;
   }
 }
+
+/* カレンダー上部の「2025年7月」などのナビゲーション部分 */
+.react-calendar__navigation {
+  color: black;
+}
+
+/* カレンダーの曜日部分（例：日月火...） */
+.react-calendar__month-view__weekdays {
+  color: black;
+}
