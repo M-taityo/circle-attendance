@@ -124,3 +124,29 @@
   color: #000 !important;
   font-weight: bold;
 }
+/* カレンダー上部ナビゲーション（月・年表示、矢印） */
+.react-calendar__navigation {
+  background-color: #ffffff !important;
+}
+
+.react-calendar__navigation__label {
+  color: #000000 !important;
+  font-size: 1.1em;
+  font-weight: bold;
+}
+
+.react-calendar__navigation button {
+  color: #000000 !important;
+  background-color: transparent !important;
+  border: none;
+  font-size: 1em;
+}
+
+/* 曜日ラベル（月火水木金土日） */
+.react-calendar__month-view__weekdays__weekday {
+  color: #000000 !important;
+  font-weight: bold;
+  text-align: center;
+  padding: 5px 0;
+  background-color: #ffffff !important;
+}
