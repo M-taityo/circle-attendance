@@ -131,3 +131,13 @@
     color: #000000 !important;
   }
 }
+/* 年月（例: 2025年7月）の文字色を黒に */
+.react-calendar__navigation__label {
+  color: #000000 !important;
+}
+
+/* 曜日（例: 月火水木…）の文字色を黒に */
+.react-calendar__month-view__weekdays__weekday {
+  color: #000000 !important;
+  font-weight: bold;
+}
