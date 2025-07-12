@@ -100,3 +100,13 @@ button:focus-visible {
   background-color: #d0f0c0 !important;
   border-radius: 50%;
 }
+
+/* 土曜日（青） */
+.react-calendar__month-view__days__day--weekend:nth-child(7n+6) {
+  color: blue;
+}
+
+/* 平日（黒） */
+.react-calendar__month-view__days__day {
+  color: black;
+}
