@@ -6,6 +6,7 @@
   border: 1px solid #a0a096;
   font-family: Arial, Helvetica, sans-serif;
   line-height: 1.125em;
+  color: black; /* 追加：デフォルト文字色 */
 }
 
 .react-calendar__tile {
@@ -13,6 +14,22 @@
   background: none;
   text-align: center;
   line-height: 16px;
+}
+
+/* ナビゲーションバー（年月の部分） */
+.react-calendar__navigation {
+  color: black;
+}
+
+/* 曜日表示（Sun, Mon...） */
+.react-calendar__month-view__weekdays {
+  color: black;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  color: black;
+  font-weight: bold;
+  text-align: center;
 }
 
 /* 練習日のハイライト */
@@ -88,6 +105,7 @@
   /* ナビゲーションバー（年月表示と矢印） */
   .react-calendar__navigation {
     background-color: #eeeeee !important;
+    color: #000000 !important;
   }
 
   .react-calendar__navigation button {
@@ -106,14 +124,10 @@
   .react-calendar__navigation button:focus {
     outline: 2px solid #2196f3 !important;
   }
-}
 
-/* カレンダー上部の「2025年7月」などのナビゲーション部分 */
-.react-calendar__navigation {
-  color: black;
-}
-
-/* カレンダーの曜日部分（例：日月火...） */
-.react-calendar__month-view__weekdays {
-  color: black;
+  /* 曜日表示 */
+  .react-calendar__month-view__weekdays,
+  .react-calendar__month-view__weekdays__weekday {
+    color: #000000 !important;
+  }
 }
