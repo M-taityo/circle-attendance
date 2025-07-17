@@ -19,6 +19,10 @@ function ParticipantsPage() {
       const participantsCol = collection(db, "participants");
       const snapshot = await getDocs(participantsCol);
       const list = snapshot.docs.map(doc => doc.data());
+  
+      // 入学年度（year）で昇順ソート
+      list.sort((a, b) => Number(a.year) - Number(b.year));
+
       setParticipants(list);
     } catch (error) {
       console.error("参加者の読み込みエラー:", error);
