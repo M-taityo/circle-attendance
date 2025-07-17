@@ -83,7 +83,7 @@ function ParticipantsPage() {
           入学年度：
           <select value={year} onChange={(e) => setYear(e.target.value)}>
             <option value="">-- 選択 --</option>
-            {Array.from({ length: 6 }, (_, i) => {
+            {Array.from({ length: 8 }, (_, i) => {
               const y = new Date().getFullYear() - i;
               return (
                 <option key={y} value={y}>
