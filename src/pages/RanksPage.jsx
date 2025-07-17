@@ -27,6 +27,10 @@ function RanksPage() {
         querySnapshot.forEach((doc) => {
           loadedParticipants.push(doc.data());
         });
+
+        // 入学年度（year）で昇順ソート
+        loadedParticipants.sort((a, b) => a.year - b.year);
+
         setParticipants(loadedParticipants);
       } catch (error) {
         console.error("参加者の読み込みに失敗しました", error);
